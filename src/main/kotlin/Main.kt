@@ -4,10 +4,10 @@ import java.net.ServerSocket
 
 const val LOCALDIRECT_HANDSHAKE = "com.localdirect.handshake"
 const val LOCALDIRECT_ACCEPT = "com.localdirect.accept"
-const val LOCALDIRECT_SOCKET_PORT = 9999
+const val LOCALDIRECT_PORT = 3316
 
 fun main() {
-    val serverSocket = ServerSocket(LOCALDIRECT_SOCKET_PORT)
+    val serverSocket = ServerSocket(LOCALDIRECT_PORT)
 
     try {
         while (true) {
