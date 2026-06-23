@@ -2,35 +2,67 @@ package com.localdirect.desktop
 
 import java.net.ServerSocket
 
-const val LOCALDIRECT_HANDSHAKE = "com.localdirect.handshake"
-const val LOCALDIRECT_ACCEPT = "com.localdirect.accept"
-const val LOCALDIRECT_PORT = 3316
-
 fun main() {
     val serverSocket = ServerSocket(LOCALDIRECT_PORT)
+    val handlers = Handlers()
+    var state = State.IDLE
 
     try {
+        println("Server started")
+        val socket = serverSocket.accept()
+        val inputStream = socket.getInputStream()
+        val outputStream = socket.getOutputStream()
+        val dataArray = ByteArray(256)
+
+        lateinit var clientIp: String
+
+        Runtime.getRuntime().addShutdownHook(Thread {
+            println("Cancellation signal received! Cleaning up...")
+            outputStream.write(
+                ServerConsts.LOCALDIRECT_TERMINAL.toByteArray(Charsets.US_ASCII),
+                0,
+                ServerConsts.LOCALDIRECT_TERMINAL.length
+            )
+        })
+
         while (true) {
-            println("Server started")
+            inputStream.read(dataArray)
+            val message = handleSocketMessage(dataArray)
+            dataArray.fill(0)
+            println("Received via TCP: $message")
 
-            val socket = serverSocket.accept()
-            val dataArray = ByteArray(LOCALDIRECT_HANDSHAKE.length)
-            val input = socket.getInputStream()
-            input.readNBytes(dataArray, 0, LOCALDIRECT_HANDSHAKE.length)
+            when (message) {
+                ClientConst.LOCALDIRECT_HANDSHAKE -> {
+                    if (state == State.IDLE) {
+                        clientIp = socket.inetAddress.toString().substringAfter('/')
+                        println("clientIp=$clientIp")
 
-            println("Received via TCP: ${dataArray.toString(Charsets.US_ASCII)}")
+                        val outputArray = ServerConsts.LOCALDIRECT_ACCEPT.toByteArray(Charsets.US_ASCII)
+                        outputStream.write(outputArray, 0, outputArray.size)
+                        println("ACCEPT sent")
+                        state = State.READY_TO_ESTABLISH
+                    }
+                }
 
-            val output = socket.getOutputStream()
-            val outputArray = LOCALDIRECT_ACCEPT.toByteArray(Charsets.US_ASCII)
-            output.write(outputArray, 0, outputArray.size)
+                ClientConst.LOCALDIRECT_ESTABLISH -> {
+                    if (state == State.READY_TO_ESTABLISH) {
 
-            input.close()
-            output.close()
+                        handlers.sendLeftMouseClick()
+                        println("Left click")
+                        state = State.CONNECTED
+                    }
+                }
 
-            println("Sent")
+                else -> {}
+            }
         }
-
     } catch (e: Exception) {
         e.printStackTrace()
     }
+}
+
+fun handleSocketMessage(buffer: ByteArray): String {
+    println("buffer=${buffer.contentToString()}")
+    return buffer.sliceArray(0..<(buffer.indexOfFirst { it == 0.toByte() }))
+        .toString(Charsets.US_ASCII)
 }
